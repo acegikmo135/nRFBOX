@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nRFBOX | ESP32 Web Flasher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ESP Web Tools Component -->
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        
+        :root {
+            --bg-deep: #020617;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-deep);
+            color: #f8fafc;
+            background-image: 
+                radial-gradient(circle at 50% 0%, #1e293b 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, #0f172a 0%, transparent 50%);
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .step-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Customizing the Web Tool Button */
+        esp-web-install-button {
+            --esp-tools-button-color: #3b82f6;
+            --esp-tools-button-text-color: #ffffff;
+            --esp-tools-button-border-radius: 12px;
+            display: block;
+            width: 100%;
+        }
+
+        esp-web-install-button button[slot="activate"] {
+            width: 100%;
+            padding: 1rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-3xl w-full space-y-8">
+        <!-- Brand Header -->
+        <header class="text-center space-y-2">
+            <div class="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold tracking-widest uppercase mb-4">
+                Hardware Tool
+            </div>
+            <h1 class="text-6xl font-extrabold tracking-tighter text-white">nRF<span class="text-blue-500">BOX</span></h1>
+            <p class="text-slate-400 text-lg">ESP32 Firmware Deployment Suite</p>
+        </header>
+
+        <!-- Main Interface -->
+        <main class="glass rounded-3xl p-8 md:p-12 relative overflow-hidden">
+            <!-- Decorative light pulse -->
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                
+                <!-- Left: Configuration -->
+                <div class="space-y-6">
+                    <div>
+                        <label class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 block">Select Firmware Version</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="updateVersion('2.5.0')" id="v250" class="version-btn p-4 rounded-xl border-2 border-blue-600 bg-blue-600/20 text-white font-bold transition-all">
+                                v2.5.0
+                                <span class="block text-[10px] font-normal opacity-70">Stable</span>
+                            </button>
+                            <button onclick="updateVersion('2.7.3')" id="v273" class="version-btn p-4 rounded-xl border-2 border-slate-700 hover:border-slate-500 text-slate-400 font-bold transition-all">
+                                v2.7.3
+                                <span class="block text-[10px] font-normal opacity-70">Latest</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="text-sm font-bold text-slate-500 uppercase tracking-wider block">Flash Map (Offsets)</label>
+                        <div class="space-y-2 mono text-xs">
+                            <div class="flex justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                                <span class="text-slate-500">Bootloader</span>
+                                <span class="text-blue-400">0x1000</span>
+                            </div>
+                            <div class="flex justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                                <span class="text-slate-500">Partitions</span>
+                                <span class="text-blue-400">0x8000</span>
+                            </div>
+                            <div class="flex justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                                <span class="text-slate-500">Firmware App</span>
+                                <span class="text-blue-400">0x10000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Action Area -->
+                <div class="h-full flex flex-col justify-between space-y-8">
+                    <div class="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6">
+                        <h3 class="text-blue-400 font-bold flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+                            Instructions
+                        </h3>
+                        <ul class="text-sm text-slate-400 space-y-2 list-disc list-inside">
+                            <li>Plug in your ESP32 via USB</li>
+                            <li>Put device in <span class="text-white">BOOT mode</span> if needed</li>
+                            <li>Click start and select the port</li>
+                        </ul>
+                    </div>
+
+                    <div id="flashContainer">
+                        <!-- The installer button -->
+                        <esp-web-install-button id="installer">
+                            <button slot="activate" class="group relative flex items-center justify-center gap-3">
+                                <svg class="w-5 h-5 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                                Install Firmware
+                            </button>
+                        </esp-web-install-button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="flex flex-col md:flex-row justify-between items-center text-slate-500 text-sm gap-4">
+            <p>&copy; 2024 nRFBOX Ecosystem</p>
+            <div class="flex gap-6">
+                <a href="#" class="hover:text-blue-400 transition-colors">Documentation</a>
+                <a href="#" class="hover:text-blue-400 transition-colors">GitHub</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration: Define the binary paths for each version
+        // Replace these URLs with the actual paths where your .bin files are hosted
+        const BASE_URL = "https://raw.githubusercontent.com/acegikmo135/nRFBox/main";
+
+        const config = {
+            "2.5.0": {
+                name: "nRFBOX v2.5.0",
+                binaries: [
+                    { path: `${BASE_URL}/v250bootloader.bin`, offset: 4096 },    // 0x1000
+                    { path: `${BASE_URL}/v250partitions.bin`, offset: 32768 },   // 0x8000
+                    { path: `${BASE_URL}/v250firmware.bin`, offset: 65536 }      // 0x10000
+                ]
+            },
+            "2.7.3": {
+                name: "nRFBOX v2.7.3",
+                binaries: [
+                    { path: `${BASE_URL}/v273bootloader.bin`, offset: 4096 },    // 0x1000
+                    { path: `${BASE_URL}/v273partitions.bin`, offset: 32768 },   // 0x8000
+                    { path: `${BASE_URL}/v273firmware.bin`, offset: 65536 }      // 0x10000
+                ]
+            }
+        };
+
+        function updateVersion(ver) {
+            // Update UI Buttons
+            const buttons = document.querySelectorAll('.version-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('border-blue-600', 'bg-blue-600/20', 'text-white');
+                btn.classList.add('border-slate-700', 'text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(ver === '2.5.0' ? 'v250' : 'v273');
+            activeBtn.classList.remove('border-slate-700', 'text-slate-400');
+            activeBtn.classList.add('border-blue-600', 'bg-blue-600/20', 'text-white');
+
+            // Generate Manifest Blob
+            const manifest = {
+                name: config[ver].name,
+                new_install_prompt_erase: true,
+                builds: [
+                    {
+                        chipFamily: "ESP32",
+                        parts: config[ver].binaries
+                    }
+                ]
+            };
+
+            // Convert manifest to an Object URL and update the installer
+            const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestUrl = URL.createObjectURL(blob);
+            
+            const installer = document.getElementById('installer');
+            installer.setAttribute('manifest', manifestUrl);
+            
+            console.log(`Switched to ${ver}. Manifest updated.`);
+        }
+
+        // Initialize with default version
+        window.addEventListener('DOMContentLoaded', () => {
+            updateVersion('2.5.0');
+        });
+    </script>
+</body>
+</html>
